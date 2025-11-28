@@ -25,7 +25,14 @@ def enviar_correo_reseteo(usuario, token):
         <h2 style="color: #2563eb;">Recuperación de Contraseña</h2>
         <p>Hola <strong>{usuario.nombre_completo}</strong>,</p>
         <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
-        <p><a href="{url_reseteo}">Click aquí para restablecer</a></p>
+        <p style="margin: 20px 0;">
+            <a href="{url_reseteo}" style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Restablecer mi contraseña
+            </a>
+        </p>
+        <p>Si no solicitaste esto, puedes ignorar este correo. El enlace expirará en 1 hora.</p>
+        <hr style="border: 0; border-top: 1px solid #eee;">
+        <p style="font-size: 12px; color: #888;">Unidad de TICs - Departamento de Salud</p>
     </div>
     """
     msg.attach(MIMEText(cuerpo_html, 'html'))

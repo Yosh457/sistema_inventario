@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import or_
-from models import db, Usuario, Rol
+from models import db, Usuario, Rol, Log
 from utils import registrar_log, admin_required
 
 # Definimos el blueprint
@@ -153,3 +153,49 @@ def toggle_activo(id):
     registrar_log("Cambio Estado", f"Usuario {usuario.nombre_completo} fue {estado}.")
     flash(f'Usuario {usuario.nombre_completo} {estado}.', 'success')
     return redirect(url_for('admin.panel'))
+
+# --- VISUALIZACIÓN DE LOGS ---
+@admin_bp.route('/ver_logs')
+@login_required
+@admin_required
+def ver_logs():
+    # Paginación
+    page = request.args.get('page', 1, type=int)
+    
+    # Filtros desde la URL
+    usuario_filtro = request.args.get('usuario_id')
+    accion_filtro = request.args.get('accion')
+
+    # Query Base: Ordenar por fecha descendente (lo más nuevo primero)
+    query = Log.query.order_by(Log.timestamp.desc())
+
+    # Aplicar Filtro Usuario
+    if usuario_filtro and usuario_filtro.isdigit():
+        query = query.filter(Log.usuario_id == int(usuario_filtro))
+    
+    # Aplicar Filtro Acción
+    if accion_filtro:
+        query = query.filter(Log.accion == accion_filtro)
+
+    # Paginamos
+    pagination = query.paginate(page=page, per_page=15, error_out=False)
+    
+    # Datos para los selectores del filtro
+    todos_los_usuarios = Usuario.query.order_by(Usuario.nombre_completo).all()
+    
+    # Lista de acciones registradas en el sistema (Actualiza esta lista si agregas nuevas acciones)
+    acciones_posibles = [
+        "Inicio de Sesión",
+        "Cierre de Sesión",
+        "Creación Usuario",
+        "Edición Usuario",
+        "Cambio Estado", # Activar/Desactivar
+        "Cambio de Clave",
+        "Recuperación Clave"
+    ]
+
+    return render_template('admin/ver_logs.html',
+                           pagination=pagination,
+                           todos_los_usuarios=todos_los_usuarios,
+                           acciones_posibles=acciones_posibles,
+                           filtros={'usuario_id': usuario_filtro, 'accion': accion_filtro})

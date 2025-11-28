@@ -102,11 +102,9 @@ def logout():
 @auth_bp.route('/cambiar_clave', methods=['GET', 'POST'])
 @login_required
 def cambiar_clave():
-    # Solo permitimos entrar aquí si el flag está activo o si el usuario quiere cambiarla
+    # Solo permitimos entrar aquí si el flag está activo
     if not current_user.cambio_clave_requerido:
-        # Opcional: Podrías permitir cambiarla voluntariamente, pero por ahora protegemos la ruta
-        # para el flujo de "cambio obligatorio".
-        pass 
+        return redirect(obtener_ruta_redireccion(current_user))
         
     if request.method == 'POST':
         nueva_password = request.form.get('nueva_password')
@@ -121,8 +119,9 @@ def cambiar_clave():
         
         registrar_log("Cambio de Clave", "El usuario actualizó su contraseña obligatoria.")
         
-        flash('Contraseña actualizada. ¡Gracias!', 'success')
-        return redirect(obtener_ruta_redireccion(current_user))
+        logout_user()
+        flash('Contraseña actualizada. Por favor, inicia sesión de nuevo.', 'success')
+        return redirect(url_for('auth.login'))
         
     return render_template('auth/cambiar_clave.html')
 
