@@ -42,8 +42,8 @@ def create_app():
     from blueprints.admin import admin_bp
     app.register_blueprint(admin_bp)
 
-    # from blueprints.inventario import inventario_bp
-    # app.register_blueprint(inventario_bp)
+    from blueprints.inventario import inventario_bp
+    app.register_blueprint(inventario_bp)
 
     # --- RUTAS GLOBALES ---
     @app.route('/')
