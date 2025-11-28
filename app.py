@@ -10,6 +10,7 @@ from models import db, Usuario
 
 def create_app():
     app = Flask(__name__)
+    app.jinja_env.add_extension('jinja2.ext.do')
     load_dotenv() # Carga las variables del .env
 
     # --- CONFIGURACIÓN ---
