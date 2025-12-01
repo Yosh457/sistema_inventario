@@ -331,3 +331,92 @@ def ver_producto(id):
                            producto=producto, 
                            movimientos=movimientos, 
                            equipos=equipos)
+
+@inventario_bp.route('/producto/<int:id>/salida', methods=['GET', 'POST'])
+@login_required
+@gestor_required
+def salida_stock(id):
+    producto = Producto.query.get_or_404(id)
+    
+    # Para el formulario, necesitamos saber qué equipos están disponibles
+    equipos_disponibles = []
+    if producto.tiene_serie:
+        equipos_disponibles = Equipo.query.filter_by(producto_id=id, estado='Disponible').all()
+
+    if request.method == 'POST':
+        motivo = request.form.get('motivo')
+        destinatario = request.form.get('destinatario') # A quién se le entrega
+        
+        texto_motivo = f"Entrega a: {destinatario} | Motivo: {motivo}"
+
+        # --- CASO 1: PRODUCTO SERIALIZADO (Notebooks) ---
+        if producto.tiene_serie:
+            # Obtenemos la lista de IDs que el usuario marcó en los checkboxes
+            equipos_ids = request.form.getlist('equipos_seleccionados')
+            
+            if not equipos_ids:
+                flash('Debes seleccionar al menos un equipo para dar salida.', 'danger')
+                return redirect(url_for('inventario.salida_stock', id=id))
+            
+            cantidad_salida = len(equipos_ids)
+            
+            # Procesamos cada equipo seleccionado
+            for equipo_id in equipos_ids:
+                equipo = Equipo.query.get(equipo_id)
+                if equipo and equipo.estado == 'Disponible':
+                    equipo.estado = 'Asignado'
+                    equipo.asignado_a = destinatario
+                    equipo.ubicacion = "Entregado a usuario" # Opcional
+            
+            # Restamos del stock disponible
+            producto.stock_actual -= cantidad_salida
+            
+            # Registramos el Movimiento
+            movimiento = Movimiento(
+                tipo='Salida',
+                cantidad=cantidad_salida,
+                motivo=texto_motivo,
+                producto_id=producto.id,
+                usuario_id=current_user.id
+            )
+            
+            db.session.add(movimiento)
+            db.session.commit()
+            
+            registrar_log("Salida Stock", f"Entregó {cantidad_salida} unidades de {producto.nombre} a {destinatario}")
+            flash(f'Se entregaron {cantidad_salida} equipos correctamente.', 'success')
+
+        # --- CASO 2: PRODUCTO A GRANEL (Cables) ---
+        else:
+            try:
+                cantidad = int(request.form.get('cantidad'))
+                
+                if cantidad <= 0:
+                    flash('La cantidad debe ser mayor a 0.', 'danger')
+                    return redirect(url_for('inventario.salida_stock', id=id))
+                
+                if cantidad > producto.stock_actual:
+                    flash(f'No hay suficiente stock. Disponible: {producto.stock_actual}', 'danger')
+                    return redirect(url_for('inventario.salida_stock', id=id))
+                
+                producto.stock_actual -= cantidad
+                
+                movimiento = Movimiento(
+                    tipo='Salida',
+                    cantidad=cantidad,
+                    motivo=texto_motivo,
+                    producto_id=producto.id,
+                    usuario_id=current_user.id
+                )
+                db.session.add(movimiento)
+                db.session.commit()
+                
+                registrar_log("Salida Stock", f"Entregó {cantidad} unidades de {producto.nombre} a {destinatario}")
+                flash(f'Salida registrada. Nuevo stock: {producto.stock_actual}', 'success')
+                
+            except ValueError:
+                flash('Cantidad inválida.', 'danger')
+
+        return redirect(url_for('inventario.ver_producto', id=id))
+
+    return render_template('inventario/movimientos/salida.html', producto=producto, equipos=equipos_disponibles)
