@@ -1,6 +1,8 @@
 # blueprints/inventario.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+import os
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 from models import db, Categoria, Producto, Equipo, Movimiento
 from utils import registrar_log, gestor_required
 
@@ -85,3 +87,137 @@ def eliminar_categoria(id):
     flash('Categoría eliminada.', 'success')
     
     return redirect(url_for('inventario.lista_categorias'))
+
+# --- GESTIÓN DE PRODUCTOS ---
+
+def allowed_file(filename):
+    """Verifica si la extensión del archivo es válida para imágenes"""
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@inventario_bp.route('/productos')
+@login_required
+@gestor_required
+def lista_productos():
+    # Obtener productos con su categoría (join implícito por la relación)
+    productos = Producto.query.order_by(Producto.nombre).all()
+    return render_template('inventario/productos/lista.html', productos=productos)
+
+@inventario_bp.route('/productos/crear', methods=['GET', 'POST'])
+@login_required
+@gestor_required
+def crear_producto():
+    categorias = Categoria.query.order_by(Categoria.nombre).all()
+    
+    if request.method == 'POST':
+        codigo = request.form.get('codigo')
+        nombre = request.form.get('nombre')
+        categoria_id = request.form.get('categoria_id')
+        descripcion = request.form.get('descripcion')
+        stock_minimo = request.form.get('stock_minimo')
+        tiene_serie = request.form.get('tiene_serie') == '1' # Checkbox
+        
+        # Validación: Código único
+        if codigo and Producto.query.filter_by(codigo=codigo).first():
+            flash('El código ingresado ya existe en otro producto.', 'danger')
+            return render_template('inventario/productos/crear_producto.html', categorias=categorias, datos_previos=request.form)
+
+        # Manejo de Imagen
+        imagen_filename = None
+        if 'imagen' in request.files:
+            file = request.files['imagen']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                # Renombramos para evitar duplicados (usando codigo o nombre)
+                ext = filename.rsplit('.', 1)[1].lower()
+                nuevo_nombre = f"{codigo}_{nombre.replace(' ', '_')}.{ext}"
+                
+                # Guardar
+                ruta_guardado = os.path.join(current_app.root_path, 'static/uploads/productos')
+                os.makedirs(ruta_guardado, exist_ok=True) # Crea la carpeta si no existe por seguridad
+                file.save(os.path.join(ruta_guardado, nuevo_nombre))
+                imagen_filename = nuevo_nombre
+
+        nuevo_prod = Producto(
+            codigo=codigo,
+            nombre=nombre,
+            descripcion=descripcion,
+            categoria_id=categoria_id,
+            stock_minimo=stock_minimo,
+            tiene_serie=tiene_serie,
+            imagen=imagen_filename,
+            stock_actual=0 # Empieza en 0 hasta que hagamos ingresos
+        )
+
+        try:
+            db.session.add(nuevo_prod)
+            db.session.commit()
+            registrar_log("Crear Producto", f"Creó el producto '{nombre}' (SKU: {codigo})")
+            flash('Producto creado correctamente.', 'success')
+            return redirect(url_for('inventario.lista_productos'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al crear producto: {str(e)}', 'danger')
+
+    return render_template('inventario/productos/crear_producto.html', categorias=categorias)
+
+@inventario_bp.route('/productos/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+@gestor_required
+def editar_producto(id):
+    producto = Producto.query.get_or_404(id)
+    categorias = Categoria.query.order_by(Categoria.nombre).all()
+
+    if request.method == 'POST':
+        producto.nombre = request.form.get('nombre')
+        producto.categoria_id = request.form.get('categoria_id')
+        producto.descripcion = request.form.get('descripcion')
+        producto.stock_minimo = request.form.get('stock_minimo')
+        # Nota: El código y tiene_serie idealmente no deberían cambiarse fácilmente 
+        # si ya hay movimientos, pero por ahora lo permitiremos con cuidado.
+        producto.codigo = request.form.get('codigo')
+        producto.tiene_serie = request.form.get('tiene_serie') == '1'
+
+        # Manejo de Nueva Imagen
+        if 'imagen' in request.files:
+            file = request.files['imagen']
+            if file and allowed_file(file.filename):
+                # Borrar imagen anterior si existe
+                if producto.imagen:
+                    try:
+                        os.remove(os.path.join(current_app.root_path, 'static/uploads/productos', producto.imagen))
+                    except:
+                        pass # Si no existe el archivo físico, seguimos
+                
+                filename = secure_filename(file.filename)
+                ext = filename.rsplit('.', 1)[1].lower()
+                nuevo_nombre = f"{producto.codigo}_{producto.nombre.replace(' ', '_')}.{ext}"
+                
+                ruta_guardado = os.path.join(current_app.root_path, 'static/uploads/productos')
+                file.save(os.path.join(ruta_guardado, nuevo_nombre))
+                producto.imagen = nuevo_nombre
+
+        db.session.commit()
+        registrar_log("Editar Producto", f"Editó el producto '{producto.nombre}'")
+        flash('Producto actualizado.', 'success')
+        return redirect(url_for('inventario.lista_productos'))
+
+    return render_template('inventario/productos/editar_producto.html', producto=producto, categorias=categorias)
+
+@inventario_bp.route('/productos/eliminar/<int:id>', methods=['POST'])
+@login_required
+@gestor_required
+def eliminar_producto(id):
+    producto = Producto.query.get_or_404(id)
+    
+    # Validar si hay stock o movimientos antes de borrar
+    # (Para evitar inconsistencias graves en la BD)
+    if producto.stock_actual > 0:
+        flash('No puedes eliminar un producto con stock activo. Debes darlo de baja primero.', 'danger')
+        return redirect(url_for('inventario.lista_productos'))
+
+    db.session.delete(producto)
+    db.session.commit()
+    registrar_log("Eliminar Producto", f"Eliminó el producto '{producto.nombre}'")
+    flash('Producto eliminado.', 'success')
+    return redirect(url_for('inventario.lista_productos'))

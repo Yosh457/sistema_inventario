@@ -10,24 +10,34 @@
                 <p class="text-gray-500 mt-2">Bienvenido, <span class="font-semibold text-blue-600">{{ current_user.nombre_completo }}</span>.</p>
             </div>
             <div class="flex gap-3">
-                <a href="{{ url_for('inventario.lista_categorias') }}" class="btn btn-secondary">Gestionar Categorías</a>
-                <button class="btn btn-primary">Nuevo Ingreso</button>
+                <a href="{{ url_for('inventario.lista_categorias') }}" class="btn btn-secondary bg-gray-600 hover:bg-gray-700 border-gray-600 text-white">
+                    Categorías
+                </a>
+                <a href="{{ url_for('inventario.lista_productos') }}" class="btn btn-secondary bg-blue-600 hover:bg-blue-700 border-blue-600 text-white">
+                    Catálogo Productos
+                </a>
+                <a href="#" class="btn btn-primary shadow-md hover:shadow-lg">
+                    + Nuevo Ingreso
+                </a>
             </div>
         </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-blue-50 p-6 rounded-lg border border-blue-100 shadow-sm">
+        <div class="bg-blue-50 p-6 rounded-lg border border-blue-100 shadow-sm transition hover:shadow-md">
             <h3 class="text-lg font-semibold text-blue-800">Total Productos</h3>
             <p class="text-3xl font-bold text-blue-900 mt-2">0</p>
+            <p class="text-xs text-blue-600 mt-1">Items únicos registrados</p>
         </div>
-        <div class="bg-green-50 p-6 rounded-lg border border-green-100 shadow-sm">
+        <div class="bg-green-50 p-6 rounded-lg border border-green-100 shadow-sm transition hover:shadow-md">
             <h3 class="text-lg font-semibold text-green-800">Stock Valorizado</h3>
             <p class="text-3xl font-bold text-green-900 mt-2">$0</p>
+            <p class="text-xs text-green-600 mt-1">Estimación total</p>
         </div>
-        <div class="bg-yellow-50 p-6 rounded-lg border border-yellow-100 shadow-sm">
+        <div class="bg-yellow-50 p-6 rounded-lg border border-yellow-100 shadow-sm transition hover:shadow-md">
             <h3 class="text-lg font-semibold text-yellow-800">Alertas Stock Bajo</h3>
             <p class="text-3xl font-bold text-yellow-900 mt-2">0</p>
+            <p class="text-xs text-yellow-600 mt-1">Productos por reponer</p>
         </div>
     </div>
 </div>

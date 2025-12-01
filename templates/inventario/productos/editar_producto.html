@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Editar Producto{% endblock %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-4xl mx-auto my-12">
+    <div class="border-b pb-4 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Editar Producto</h2>
+        <p class="text-gray-500 text-sm mt-1">Modificando: {{ producto.nombre }}</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                    <input type="text" name="codigo" value="{{ producto.codigo }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                    <input type="text" name="nombre" value="{{ producto.nombre }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                    <select name="categoria_id" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        {% for cat in categorias %}
+                            <option value="{{ cat.id }}" {% if cat.id == producto.categoria_id %}selected{% endif %}>{{ cat.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo</label>
+                    <input type="number" name="stock_minimo" value="{{ producto.stock_minimo }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" min="0">
+                </div>
+
+                <div class="flex items-center gap-4">
+                    {% if producto.imagen %}
+                        <img src="{{ url_for('static', filename='uploads/productos/' + producto.imagen) }}" class="h-16 w-16 rounded border object-cover">
+                    {% endif %}
+                    <div class="w-full">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cambiar Imagen</label>
+                        <input type="file" name="imagen" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700">
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input type="checkbox" name="tiene_serie" value="1" class="h-5 w-5 text-blue-600 rounded" 
+                                   {% if producto.tiene_serie %}checked{% endif %}>
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label class="font-bold text-gray-800">¿Tiene Número de Serie?</label>
+                            <p class="text-xs text-red-500 mt-1">Cuidado: Cambiar esto puede afectar el stock existente.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <textarea name="descripcion" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">{{ producto.descripcion }}</textarea>
+        </div>
+
+        <div class="flex justify-end gap-4 pt-6 border-t">
+            <a href="{{ url_for('inventario.lista_productos') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Actualizar Producto</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
