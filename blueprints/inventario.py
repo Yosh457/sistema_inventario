@@ -221,3 +221,113 @@ def eliminar_producto(id):
     registrar_log("Eliminar Producto", f"Eliminó el producto '{producto.nombre}'")
     flash('Producto eliminado.', 'success')
     return redirect(url_for('inventario.lista_productos'))
+
+# --- CONTROL DE STOCK ---
+
+@inventario_bp.route('/producto/<int:id>/ingreso', methods=['GET', 'POST'])
+@login_required
+@gestor_required
+def ingreso_stock(id):
+    producto = Producto.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        motivo = request.form.get('motivo')
+        # Obtenemos el proveedor o ubicación si quisieras agregarlo después
+        
+        # --- CASO 1: PRODUCTO SERIALIZADO (Notebooks) ---
+        if producto.tiene_serie:
+            seriales_raw = request.form.get('seriales') # Textarea
+            # Separamos por líneas y limpiamos espacios vacíos
+            lista_seriales = [s.strip() for s in seriales_raw.split('\n') if s.strip()]
+            
+            if not lista_seriales:
+                flash('Debes ingresar al menos un número de serie.', 'danger')
+                return redirect(url_for('inventario.ingreso_stock', id=id))
+            
+            cantidad_agregada = 0
+            errores = []
+
+            for serie in lista_seriales:
+                # Verificar si ya existe ese serial en la BD
+                if Equipo.query.filter_by(numero_serie=serie).first():
+                    errores.append(f"El serial {serie} ya existe.")
+                    continue
+                
+                nuevo_equipo = Equipo(
+                    numero_serie=serie,
+                    producto_id=producto.id,
+                    estado='Disponible',
+                    ubicacion='Bodega Central' # Default por ahora
+                )
+                db.session.add(nuevo_equipo)
+                cantidad_agregada += 1
+            
+            if cantidad_agregada > 0:
+                # Actualizamos el contador total del producto
+                producto.stock_actual += cantidad_agregada
+                
+                # Registramos el Movimiento en el Kardex
+                movimiento = Movimiento(
+                    tipo='Entrada',
+                    cantidad=cantidad_agregada,
+                    motivo=f"{motivo} (Series: {', '.join(lista_seriales[:3])}...)", # Guardamos un resumen
+                    producto_id=producto.id,
+                    usuario_id=current_user.id
+                )
+                db.session.add(movimiento)
+                db.session.commit()
+                
+                registrar_log("Ingreso Stock", f"Ingresó {cantidad_agregada} unidades a {producto.nombre}")
+                flash(f'Se ingresaron {cantidad_agregada} equipos correctamente.', 'success')
+            
+            if errores:
+                for error in errores:
+                    flash(error, 'warning')
+
+        # --- CASO 2: PRODUCTO A GRANEL (Cables) ---
+        else:
+            try:
+                cantidad = int(request.form.get('cantidad'))
+                if cantidad <= 0:
+                    flash('La cantidad debe ser mayor a 0.', 'danger')
+                    return redirect(url_for('inventario.ingreso_stock', id=id))
+                
+                producto.stock_actual += cantidad
+                
+                movimiento = Movimiento(
+                    tipo='Entrada',
+                    cantidad=cantidad,
+                    motivo=motivo,
+                    producto_id=producto.id,
+                    usuario_id=current_user.id
+                )
+                db.session.add(movimiento)
+                db.session.commit()
+                
+                registrar_log("Ingreso Stock", f"Ingresó {cantidad} unidades a {producto.nombre}")
+                flash(f'Stock actualizado. Nuevo total: {producto.stock_actual}', 'success')
+                
+            except ValueError:
+                flash('Cantidad inválida.', 'danger')
+
+        return redirect(url_for('inventario.ver_producto', id=id))
+
+    return render_template('inventario/movimientos/ingreso.html', producto=producto)
+
+@inventario_bp.route('/producto/<int:id>/detalle')
+@login_required
+@gestor_required
+def ver_producto(id):
+    producto = Producto.query.get_or_404(id)
+    # Obtenemos últimos 50 movimientos
+    movimientos = Movimiento.query.filter_by(producto_id=id).order_by(Movimiento.fecha.desc()).limit(50).all()
+    
+    # Si es seriado, obtenemos los equipos
+    equipos = []
+    if producto.tiene_serie:
+        equipos = Equipo.query.filter_by(producto_id=id).all()
+        
+    return render_template('inventario/productos/ver_detalle.html', 
+                           producto=producto, 
+                           movimientos=movimientos, 
+                           equipos=equipos)
