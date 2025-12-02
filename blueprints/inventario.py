@@ -5,6 +5,7 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from models import db, Categoria, Producto, Equipo, Movimiento
 from utils import registrar_log, gestor_required
+from sqlalchemy import or_
 
 # Definimos el Blueprint
 inventario_bp = Blueprint('inventario', __name__, template_folder='../templates', url_prefix='/inventario')
@@ -115,20 +116,33 @@ def allowed_file(filename):
 @login_required
 @gestor_required
 def lista_productos():
-    # Capturar filtro de la URL
+    # 1. Filtros
     solo_alertas = request.args.get('alerta') == 'true'
-    
+    busqueda = request.args.get('busqueda', '') # Capturamos lo que el usuario escribió
+
     query = Producto.query
     
-    # Si viene el filtro ?alerta=true, modificamos la consulta
+    # 2. Aplicar Búsqueda (Nombre o Código)
+    if busqueda:
+        query = query.filter(
+            or_(
+                Producto.nombre.ilike(f'%{busqueda}%'),
+                Producto.codigo.ilike(f'%{busqueda}%')
+            )
+        )
+
+    # 3. Aplicar Filtro de Alerta (Stock Bajo)
     if solo_alertas:
         query = query.filter(Producto.stock_actual <= Producto.stock_minimo)
         
+    # Ordenamos y obtenemos resultados
     productos = query.order_by(Producto.nombre).all()
     
+    # Renderizamos la plantilla con el nuevo nombre
     return render_template('inventario/productos/lista_productos.html', 
                            productos=productos, 
-                           filtro_alerta=solo_alertas) # Pasamos la variable para saber si estamos filtrando
+                           filtro_alerta=solo_alertas,
+                           busqueda=busqueda) # Pasamos la búsqueda para mantenerla en el input
 
 @inventario_bp.route('/productos/crear', methods=['GET', 'POST'])
 @login_required

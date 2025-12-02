@@ -4,109 +4,159 @@
 {% block content %}
 <div class="container mx-auto mt-8 px-4 max-w-7xl">
     
-    <div class="flex justify-between items-center mb-6">
-        <div>
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
+        
+        <div class="flex-shrink-0">
             <h2 class="text-2xl font-bold text-gray-800">Catálogo de Productos</h2>
-            {% if filtro_alerta %}
-            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 flex justify-between items-center">
-                <div class="flex items-center">
-                    <svg class="h-6 w-6 text-yellow-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
-                    <div>
-                        <p class="font-bold text-yellow-800">Filtrando por Stock Crítico</p>
-                        <p class="text-sm text-yellow-700">Mostrando solo productos que requieren reposición.</p>
-                    </div>
-                </div>
-                <a href="{{ url_for('inventario.lista_productos') }}" class="text-sm font-semibold text-yellow-800 hover:text-yellow-900 underline">
-                    Ver Todos
-                </a>
-            </div>
-            {% endif %}
             <p class="text-gray-500 text-sm">Administra los items disponibles en bodega.</p>
         </div>
-        <div class="flex gap-2">
-            <a href="{{ url_for('inventario.panel') }}" class="btn btn-secondary">&larr; Volver</a>
-            <a href="{{ url_for('inventario.crear_producto') }}" class="btn btn-primary">Nuevo Producto</a>
+
+        <div class="flex flex-col sm:flex-row w-full lg:w-auto gap-3 flex-grow justify-end items-center">
+            
+            <form method="get" class="relative w-full sm:max-w-md flex gap-2">
+                {% if filtro_alerta %}
+                    <input type="hidden" name="alerta" value="true">
+                {% endif %}
+                
+                <div class="relative w-full">
+                    <input type="text" name="busqueda" value="{{ busqueda }}" 
+                           class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition shadow-sm" 
+                           placeholder="Buscar SKU o nombre...">
+                    
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+
+                    {% if busqueda %}
+                        <a href="{{ url_for('inventario.lista_productos') }}" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition" title="Limpiar búsqueda">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </a>
+                    {% endif %}
+                </div>
+                
+                <button type="submit" class="btn btn-secondary bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-700">
+                    Buscar
+                </button>
+            </form>
+
+            <div class="flex gap-2 w-full sm:w-auto">
+                <a href="{{ url_for('inventario.panel') }}" class="btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm w-full sm:w-auto text-center">
+                    Volver
+                </a>
+                
+                <a href="{{ url_for('inventario.crear_producto') }}" class="btn btn-primary shadow-md hover:shadow-lg w-full sm:w-auto text-center whitespace-nowrap">
+                    + Nuevo Producto
+                </a>
+            </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-        <table class="min-w-full">
-            <thead class="bg-gray-50 border-b">
-                <tr>
-                    <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Imagen</th>
-                    <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Código</th>
-                    <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Producto</th>
-                    <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Categoría</th>
-                    <th class="py-3 px-6 text-center text-xs font-semibold text-gray-500 uppercase">Control</th>
-                    <th class="py-3 px-6 text-center text-xs font-semibold text-gray-500 uppercase">Stock Total</th>
-                    <th class="py-3 px-6 text-right text-xs font-semibold text-gray-500 uppercase">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-                {% for prod in productos %}
-                <tr class="hover:bg-gray-50 transition group">
-                    <td class="py-3 px-6">
-                        {% if prod.imagen %}
-                            <img src="{{ url_for('static', filename='uploads/productos/' + prod.imagen) }}" alt="Foto" class="h-10 w-10 object-cover rounded-md border">
-                        {% else %}
-                            <div class="h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            </div>
-                        {% endif %}
-                    </td>
-                    <td class="py-3 px-6 text-sm text-gray-500">{{ prod.codigo or '---' }}</td>
-                    <td class="py-3 px-6">
-                        <div class="font-medium text-gray-800">{{ prod.nombre }}</div>
-                        <div class="text-xs text-gray-400 truncate w-48">{{ prod.descripcion }}</div>
-                    </td>
-                    <td class="py-3 px-6">
-                        <span class="bg-gray-100 text-gray-600 py-1 px-2 rounded text-xs font-semibold">
-                            {{ prod.categoria.nombre }}
-                        </span>
-                    </td>
-                    <td class="py-3 px-6 text-center">
-                        {% if prod.tiene_serie %}
-                            <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-bold" title="Se controla por número de serie único">Serie</span>
-                        {% else %}
-                            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold" title="Se controla por cantidad global">Granel</span>
-                        {% endif %}
-                    </td>
-                    <td class="py-3 px-6 text-center">
-                        {% if prod.stock_actual <= prod.stock_minimo %}
-                            <span class="text-red-600 font-bold">{{ prod.stock_actual }}</span>
-                        {% else %}
-                            <span class="text-green-600 font-bold">{{ prod.stock_actual }}</span>
-                        {% endif %}
-                    </td>
-                    
-                    <td class="py-3 px-6 text-right flex justify-end gap-2 items-center">
-                        <a href="{{ url_for('inventario.ver_producto', id=prod.id) }}" class="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-xs py-1 px-3 shadow-sm">
-                            Stock
-                        </a>
+    {% if filtro_alerta %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 flex justify-between items-center rounded-r-lg shadow-sm">
+        <div class="flex items-center">
+            <div class="bg-yellow-100 p-2 rounded-full mr-3">
+                <svg class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="font-bold text-yellow-800">Filtrando por Stock Crítico</p>
+                <p class="text-sm text-yellow-700">Mostrando solo productos que requieren reposición.</p>
+            </div>
+        </div>
+        <a href="{{ url_for('inventario.lista_productos') }}" class="text-sm font-semibold text-yellow-800 hover:text-yellow-900 underline">
+            Ver Todos
+        </a>
+    </div>
+    {% endif %}
 
-                        <a href="{{ url_for('inventario.editar_producto', id=prod.id) }}" class="btn btn-secondary text-xs py-1 px-2" title="Editar Producto">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        </a>
+    <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Imagen</th>
+                        <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Código</th>
+                        <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Producto</th>
+                        <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Categoría</th>
+                        <th class="py-3 px-6 text-center text-xs font-semibold text-gray-500 uppercase">Control</th>
+                        <th class="py-3 px-6 text-center text-xs font-semibold text-gray-500 uppercase">Stock Total</th>
+                        <th class="py-3 px-6 text-right text-xs font-semibold text-gray-500 uppercase">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for prod in productos %}
+                    <tr class="hover:bg-gray-50 transition group">
+                        <td class="py-3 px-6">
+                            {% if prod.imagen %}
+                                <img src="{{ url_for('static', filename='uploads/productos/' + prod.imagen) }}" alt="Foto" class="h-10 w-10 object-cover rounded-md border shadow-sm">
+                            {% else %}
+                                <div class="h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 border">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-6 text-sm text-gray-500 font-mono">{{ prod.codigo or '---' }}</td>
+                        <td class="py-3 px-6">
+                            <div class="font-medium text-gray-800">{{ prod.nombre }}</div>
+                            <div class="text-xs text-gray-400 truncate w-48">{{ prod.descripcion }}</div>
+                        </td>
+                        <td class="py-3 px-6">
+                            <span class="bg-gray-100 text-gray-600 py-1 px-2 rounded text-xs font-semibold border border-gray-200">
+                                {{ prod.categoria.nombre }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-6 text-center">
+                            {% if prod.tiene_serie %}
+                                <span class="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded-full font-bold border border-purple-100" title="Se controla por número de serie único">Serie</span>
+                            {% else %}
+                                <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-bold border border-blue-100" title="Se controla por cantidad global">Granel</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-6 text-center">
+                            {% if prod.stock_actual <= prod.stock_minimo %}
+                                <span class="text-red-600 font-bold bg-red-50 px-2 py-1 rounded">{{ prod.stock_actual }}</span>
+                            {% else %}
+                                <span class="text-green-600 font-bold">{{ prod.stock_actual }}</span>
+                            {% endif %}
+                        </td>
                         
-                        <form id="form-eliminar-{{ prod.id }}" action="{{ url_for('inventario.eliminar_producto', id=prod.id) }}" method="post" class="inline">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="button" onclick="abrirModalEliminar('{{ prod.id }}', '{{ prod.nombre }}')" class="btn btn-danger bg-white text-red-600 border border-red-200 hover:bg-red-50 text-xs py-1 px-2" title="Eliminar Producto">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7" class="text-center py-12 text-gray-500">
-                        No hay productos registrados. ¡Comienza creando uno!
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        <td class="py-3 px-6 text-right flex justify-end gap-2 items-center">
+                            <a href="{{ url_for('inventario.ver_producto', id=prod.id) }}" class="btn btn-primary bg-blue-600 hover:bg-blue-700 border-none text-xs py-1 px-3 shadow-sm transition">
+                                Stock
+                            </a>
+
+                            <a href="{{ url_for('inventario.editar_producto', id=prod.id) }}" class="btn btn-secondary bg-white border-gray-200 hover:bg-gray-50 text-gray-600 text-xs py-1 px-2 shadow-sm transition" title="Editar Producto">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </a>
+                            
+                            <form id="form-eliminar-{{ prod.id }}" action="{{ url_for('inventario.eliminar_producto', id=prod.id) }}" method="post" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="button" onclick="abrirModalEliminar('{{ prod.id }}', '{{ prod.nombre }}')" class="btn btn-danger bg-white text-red-500 border border-red-100 hover:bg-red-50 hover:border-red-200 text-xs py-1 px-2 shadow-sm transition" title="Eliminar Producto">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-12 text-gray-500 bg-gray-50">
+                            <p class="mb-2">No se encontraron productos.</p>
+                            {% if busqueda or filtro_alerta %}
+                                <a href="{{ url_for('inventario.lista_productos') }}" class="text-blue-600 hover:underline text-sm">Limpiar filtros</a>
+                            {% else %}
+                                <a href="{{ url_for('inventario.crear_producto') }}" class="text-blue-600 hover:underline text-sm">Crear el primer producto</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
