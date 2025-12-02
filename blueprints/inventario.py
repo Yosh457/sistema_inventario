@@ -1,9 +1,9 @@
 # blueprints/inventario.py
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, make_response, jsonify
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from models import db, Categoria, Producto, Equipo, Movimiento
+from models import db, Categoria, Producto, Equipo, Movimiento, Subcategoria
 from utils import registrar_log, gestor_required
 from sqlalchemy import or_
 from utils.pdf_generator import generar_acta_entrega
@@ -36,21 +36,21 @@ def panel():
                            total_items_fisicos=total_items_fisicos,
                            alertas_stock=productos_bajo_stock)
 
-# --- GESTIÓN DE CATEGORÍAS ---
+# --- GESTIÓN DE CATEGORÍAS Y SUBCATEGORÍAS ---
 
 @inventario_bp.route('/categorias')
 @login_required
 @gestor_required
 def lista_categorias():
     categorias = Categoria.query.order_by(Categoria.nombre).all()
-    return render_template('inventario/categorias/lista.html', categorias=categorias)
+    return render_template('inventario/categorias/lista_categorias.html', categorias=categorias)
 
 @inventario_bp.route('/categorias/crear', methods=['POST'])
 @login_required
 @gestor_required
 def crear_categoria():
     nombre = request.form.get('nombre')
-    
+    #Verificar que no esté vacío
     if not nombre:
         flash('El nombre de la categoría es obligatorio.', 'danger')
         return redirect(url_for('inventario.lista_categorias'))
@@ -106,6 +106,31 @@ def eliminar_categoria(id):
     
     return redirect(url_for('inventario.lista_categorias'))
 
+@inventario_bp.route('/categorias/<int:id>/nueva_subcategoria', methods=['POST'])
+@login_required
+@gestor_required
+def crear_subcategoria(id):
+    categoria = Categoria.query.get_or_404(id)
+    nombre_sub = request.form.get('nombre_subcategoria')
+    
+    if nombre_sub:
+        nueva_sub = Subcategoria(nombre=nombre_sub, categoria_id=id)
+        db.session.add(nueva_sub)
+        db.session.commit()
+        flash(f'Subcategoría "{nombre_sub}" agregada a {categoria.nombre}.', 'success')
+    
+    return redirect(url_for('inventario.lista_categorias'))
+
+# --- API PARA DROPDOWNS DINÁMICOS ---
+@inventario_bp.route('/api/subcategorias/<int:categoria_id>')
+@login_required
+def get_subcategorias(categoria_id):
+    """Retorna las subcategorías en formato JSON para el frontend"""
+    subcategorias = Subcategoria.query.filter_by(categoria_id=categoria_id).order_by(Subcategoria.nombre).all()
+    
+    lista = [{'id': sub.id, 'nombre': sub.nombre} for sub in subcategorias]
+    return jsonify(lista)
+
 # --- GESTIÓN DE PRODUCTOS ---
 
 def allowed_file(filename):
@@ -155,6 +180,8 @@ def crear_producto():
         codigo = request.form.get('codigo')
         nombre = request.form.get('nombre')
         categoria_id = request.form.get('categoria_id')
+        subcategoria_id = request.form.get('subcategoria_id')
+        if not subcategoria_id: subcategoria_id = None
         descripcion = request.form.get('descripcion')
         stock_minimo = request.form.get('stock_minimo')
         tiene_serie = request.form.get('tiene_serie') == '1' # Checkbox
@@ -213,6 +240,8 @@ def editar_producto(id):
     if request.method == 'POST':
         producto.nombre = request.form.get('nombre')
         producto.categoria_id = request.form.get('categoria_id')
+        sub_id = request.form.get('subcategoria_id')
+        producto.subcategoria_id = sub_id if sub_id else None
         producto.descripcion = request.form.get('descripcion')
         producto.stock_minimo = request.form.get('stock_minimo')
         # Nota: El código y tiene_serie idealmente no deberían cambiarse fácilmente 

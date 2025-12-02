@@ -62,6 +62,18 @@ class Categoria(db.Model):
     nombre = db.Column(db.String(100), unique=True, nullable=False)
     
     productos = db.relationship('Producto', back_populates='categoria')
+    # Una categoría tiene muchas subcategorías
+    subcategorias = db.relationship('Subcategoria', back_populates='categoria', cascade="all, delete-orphan")
+
+class Subcategoria(db.Model):
+    __tablename__ = 'subcategorias'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    
+    categoria_id = db.Column(db.Integer, db.ForeignKey('categorias.id'), nullable=False)
+    categoria = db.relationship('Categoria', back_populates='subcategorias')
+    
+    productos = db.relationship('Producto', back_populates='subcategoria')
 
 class Producto(db.Model):
     __tablename__ = 'productos'
@@ -79,6 +91,9 @@ class Producto(db.Model):
 
     categoria_id = db.Column(db.Integer, db.ForeignKey('categorias.id'), nullable=False)
     categoria = db.relationship('Categoria', back_populates='productos')
+
+    subcategoria_id = db.Column(db.Integer, db.ForeignKey('subcategorias.id'), nullable=True)
+    subcategoria = db.relationship('Subcategoria', back_populates='productos')
     
     # Relaciones
     equipos = db.relationship('Equipo', back_populates='producto')
