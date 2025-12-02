@@ -146,8 +146,16 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-3 text-sm text-gray-500 text-right">
+                            <td class="px-6 py-3 text-sm text-gray-500 text-right flex items-center justify-end gap-2">
                                 <span class="block truncate w-40" title="{{ mov.motivo }}">{{ mov.motivo }}</span>
+                                
+                                {% if mov.tipo == 'Salida' %}
+                                    <a href="{{ url_for('inventario.descargar_acta', id=mov.id) }}" target="_blank" class="text-red-600 hover:text-red-800" title="Descargar Acta">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                    </a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% else %}

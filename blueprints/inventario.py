@@ -1,11 +1,12 @@
 # blueprints/inventario.py
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, make_response
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from models import db, Categoria, Producto, Equipo, Movimiento
 from utils import registrar_log, gestor_required
 from sqlalchemy import or_
+from utils.pdf_generator import generar_acta_entrega
 
 # Definimos el Blueprint
 inventario_bp = Blueprint('inventario', __name__, template_folder='../templates', url_prefix='/inventario')
@@ -461,3 +462,26 @@ def salida_stock(id):
         return redirect(url_for('inventario.ver_producto', id=id))
 
     return render_template('inventario/movimientos/salida.html', producto=producto, equipos=equipos_disponibles)
+
+@inventario_bp.route('/movimiento/<int:id>/pdf')
+@login_required
+@gestor_required
+def descargar_acta(id):
+    movimiento = Movimiento.query.get_or_404(id)
+    
+    # Solo permitimos actas de SALIDAS
+    if movimiento.tipo != 'Salida':
+        flash('Solo se pueden generar actas de entrega (Salidas).', 'warning')
+        return redirect(url_for('inventario.ver_producto', id=movimiento.producto_id))
+
+    # Intentamos buscar si hubo un equipo específico asociado (Opcional, lógica simple)
+    # Por ahora el PDF tomará los datos genéricos del movimiento.
+    
+    pdf_content = generar_acta_entrega(movimiento)
+    
+    response = make_response(pdf_content)
+    response.headers['Content-Type'] = 'application/pdf'
+    # 'inline' para ver en navegador, 'attachment' para descargar directo
+    response.headers['Content-Disposition'] = f'inline; filename=Acta_{movimiento.id}.pdf'
+    
+    return response
