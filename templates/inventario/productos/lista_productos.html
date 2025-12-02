@@ -4,55 +4,60 @@
 {% block content %}
 <div class="container mx-auto mt-8 px-4 max-w-7xl">
     
-    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
-        
-        <div class="flex-shrink-0">
+    <div class="flex flex-col lg:flex-row justify-between items-end mb-6 gap-4">
+        <div>
             <h2 class="text-2xl font-bold text-gray-800">Catálogo de Productos</h2>
             <p class="text-gray-500 text-sm">Administra los items disponibles en bodega.</p>
         </div>
-
-        <div class="flex flex-col sm:flex-row w-full lg:w-auto gap-3 flex-grow justify-end items-center">
-            
-            <form method="get" class="relative w-full sm:max-w-md flex gap-2">
-                {% if filtro_alerta %}
-                    <input type="hidden" name="alerta" value="true">
-                {% endif %}
-                
-                <div class="relative w-full">
-                    <input type="text" name="busqueda" value="{{ busqueda }}" 
-                           class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition shadow-sm" 
-                           placeholder="Buscar SKU o nombre...">
-                    
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-
-                    {% if busqueda %}
-                        <a href="{{ url_for('inventario.lista_productos') }}" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition" title="Limpiar búsqueda">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </a>
-                    {% endif %}
-                </div>
-                
-                <button type="submit" class="btn btn-secondary bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-700">
-                    Buscar
-                </button>
-            </form>
-
-            <div class="flex gap-2 w-full sm:w-auto">
-                <a href="{{ url_for('inventario.panel') }}" class="btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm w-full sm:w-auto text-center">
-                    Volver
-                </a>
-                
-                <a href="{{ url_for('inventario.crear_producto') }}" class="btn btn-primary shadow-md hover:shadow-lg w-full sm:w-auto text-center whitespace-nowrap">
-                    + Nuevo Producto
-                </a>
-            </div>
+        
+        <div class="flex gap-2">
+            <a href="{{ url_for('inventario.panel') }}" class="btn btn-secondary">&larr; Volver</a>
+            <a href="{{ url_for('inventario.crear_producto') }}" class="btn btn-primary whitespace-nowrap">+ Nuevo Producto</a>
         </div>
+    </div>
+
+    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 shadow-sm">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            {% if filtro_alerta %}
+                <input type="hidden" name="alerta" value="true">
+            {% endif %}
+
+            <div class="md:col-span-4">
+                <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Buscar</label>
+                <div class="relative">
+                    <input type="text" name="busqueda" value="{{ busqueda }}" 
+                           class="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
+                           placeholder="SKU o Nombre...">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-3">
+                <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Categoría</label>
+                <select name="categoria" id="filtro_categoria" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                    <option value="">Todas</option>
+                    {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if filtro_cat == cat.id|string %}selected{% endif %}>{{ cat.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="md:col-span-3">
+                <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Subcategoría</label>
+                <select name="subcategoria" id="filtro_subcategoria" data-selected="{{ filtro_sub }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white" {% if not filtro_cat %}disabled{% endif %}>
+                    <option value="">Todas</option>
+                    </select>
+            </div>
+
+            <div class="md:col-span-2 flex gap-2">
+                <button type="submit" class="btn btn-primary w-full justify-center text-sm font-semibold">Filtrar</button>
+                {% if busqueda or filtro_cat or filtro_sub %}
+                    <a href="{{ url_for('inventario.lista_productos') }}" class="btn btn-secondary px-3 flex items-center justify-center text-gray-500 hover:text-gray-700 border-gray-300 bg-white" title="Limpiar todo">✕</a>
+                {% endif %}
+            </div>
+        </form>
     </div>
 
     {% if filtro_alerta %}
@@ -83,6 +88,7 @@
                         <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Código</th>
                         <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Producto</th>
                         <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Categoría</th>
+                        <th class="py-3 px-6 text-left text-xs font-semibold text-gray-500 uppercase">Subcategoría</th>
                         <th class="py-3 px-6 text-center text-xs font-semibold text-gray-500 uppercase">Control</th>
                         <th class="py-3 px-6 text-center text-xs font-semibold text-gray-500 uppercase">Stock Total</th>
                         <th class="py-3 px-6 text-right text-xs font-semibold text-gray-500 uppercase">Acciones</th>
@@ -109,6 +115,15 @@
                             <span class="bg-gray-100 text-gray-600 py-1 px-2 rounded text-xs font-semibold border border-gray-200">
                                 {{ prod.categoria.nombre }}
                             </span>
+                        </td>
+                        <td class="py-3 px-6">
+                            {% if prod.subcategoria %}
+                                <span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 font-medium">
+                                    {{ prod.subcategoria.nombre }}
+                                </span>
+                            {% else %}
+                                <span class="text-xs text-gray-300">-</span>
+                            {% endif %}
                         </td>
                         <td class="py-3 px-6 text-center">
                             {% if prod.tiene_serie %}
@@ -144,9 +159,9 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="text-center py-12 text-gray-500 bg-gray-50">
+                        <td colspan="8" class="text-center py-12 text-gray-500 bg-gray-50">
                             <p class="mb-2">No se encontraron productos.</p>
-                            {% if busqueda or filtro_alerta %}
+                            {% if busqueda or filtro_alerta or filtro_cat %}
                                 <a href="{{ url_for('inventario.lista_productos') }}" class="text-blue-600 hover:underline text-sm">Limpiar filtros</a>
                             {% else %}
                                 <a href="{{ url_for('inventario.crear_producto') }}" class="text-blue-600 hover:underline text-sm">Crear el primer producto</a>
@@ -179,15 +194,7 @@
     </div>
 </div>
 
-<script>
-    let idEliminarActual = null;
-    function abrirModalEliminar(id, nombre) {
-        document.getElementById('modal-eliminar').classList.remove('hidden');
-        document.getElementById('nombre-item-eliminar').textContent = nombre;
-        idEliminarActual = id;
-    }
-    document.getElementById('btn-confirmar-eliminar').addEventListener('click', function() {
-        if (idEliminarActual) document.getElementById('form-eliminar-' + idEliminarActual).submit();
-    });
-</script>
+{% block scripts %}
+    <script src="{{ url_for('static', filename='catalogo.js') }}"></script>
+{% endblock %}
 {% endblock %}

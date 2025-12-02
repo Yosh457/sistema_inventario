@@ -142,13 +142,15 @@ def allowed_file(filename):
 @login_required
 @gestor_required
 def lista_productos():
-    # 1. Filtros
+    # 1. Capturar todos los filtros
     solo_alertas = request.args.get('alerta') == 'true'
-    busqueda = request.args.get('busqueda', '') # Capturamos lo que el usuario escribió
+    busqueda = request.args.get('busqueda', '')
+    cat_id = request.args.get('categoria')
+    sub_id = request.args.get('subcategoria')
 
     query = Producto.query
     
-    # 2. Aplicar Búsqueda (Nombre o Código)
+    # 2. Filtro de Texto (Nombre o SKU)
     if busqueda:
         query = query.filter(
             or_(
@@ -157,18 +159,29 @@ def lista_productos():
             )
         )
 
-    # 3. Aplicar Filtro de Alerta (Stock Bajo)
+    # 3. Filtros de Categoría
+    if cat_id and cat_id.isdigit():
+        query = query.filter(Producto.categoria_id == int(cat_id))
+    
+    if sub_id and sub_id.isdigit():
+        query = query.filter(Producto.subcategoria_id == int(sub_id))
+
+    # 4. Filtro de Alerta
     if solo_alertas:
         query = query.filter(Producto.stock_actual <= Producto.stock_minimo)
         
-    # Ordenamos y obtenemos resultados
     productos = query.order_by(Producto.nombre).all()
     
-    # Renderizamos la plantilla con el nuevo nombre
+    # Necesitamos pasar las categorías a la plantilla para llenar el select
+    categorias = Categoria.query.order_by(Categoria.nombre).all()
+    
     return render_template('inventario/productos/lista_productos.html', 
                            productos=productos, 
+                           categorias=categorias,
                            filtro_alerta=solo_alertas,
-                           busqueda=busqueda) # Pasamos la búsqueda para mantenerla en el input
+                           busqueda=busqueda,
+                           filtro_cat=cat_id,
+                           filtro_sub=sub_id)
 
 @inventario_bp.route('/productos/crear', methods=['GET', 'POST'])
 @login_required
