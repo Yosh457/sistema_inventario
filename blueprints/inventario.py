@@ -14,9 +14,25 @@ inventario_bp = Blueprint('inventario', __name__, template_folder='../templates'
 @login_required
 @gestor_required
 def panel():
-    """Vista principal para el Gestor de Inventario"""
-    # Aquí luego agregaremos resúmenes de stock
-    return render_template('inventario/panel.html')
+    """Vista principal con métricas reales"""
+    
+    # 1. Total de Productos únicos (SKUs)
+    total_productos = Producto.query.count()
+    
+    # 2. Stock Crítico (Productos con stock <= stock_minimo)
+    # Filtramos solo aquellos que tienen stock bajo
+    productos_bajo_stock = Producto.query.filter(Producto.stock_actual <= Producto.stock_minimo).count()
+    
+    # 3. Stock Valorizado (Opcional: Si tuvieras precio)
+    # Como por ahora no tenemos campo 'precio' en el modelo Producto, 
+    # mostraremos la cantidad total de items físicos en bodega.
+    # Si quieres implementar dinero, tendríamos que agregar el campo 'precio' al modelo.
+    total_items_fisicos = db.session.query(db.func.sum(Producto.stock_actual)).scalar() or 0
+
+    return render_template('inventario/panel.html', 
+                           total_productos=total_productos,
+                           total_items_fisicos=total_items_fisicos,
+                           alertas_stock=productos_bajo_stock)
 
 # --- GESTIÓN DE CATEGORÍAS ---
 
@@ -99,9 +115,20 @@ def allowed_file(filename):
 @login_required
 @gestor_required
 def lista_productos():
-    # Obtener productos con su categoría (join implícito por la relación)
-    productos = Producto.query.order_by(Producto.nombre).all()
-    return render_template('inventario/productos/lista.html', productos=productos)
+    # Capturar filtro de la URL
+    solo_alertas = request.args.get('alerta') == 'true'
+    
+    query = Producto.query
+    
+    # Si viene el filtro ?alerta=true, modificamos la consulta
+    if solo_alertas:
+        query = query.filter(Producto.stock_actual <= Producto.stock_minimo)
+        
+    productos = query.order_by(Producto.nombre).all()
+    
+    return render_template('inventario/productos/lista_productos.html', 
+                           productos=productos, 
+                           filtro_alerta=solo_alertas) # Pasamos la variable para saber si estamos filtrando
 
 @inventario_bp.route('/productos/crear', methods=['GET', 'POST'])
 @login_required
