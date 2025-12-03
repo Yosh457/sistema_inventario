@@ -117,7 +117,7 @@ class Movimiento(db.Model):
     __tablename__ = 'movimientos'
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.DateTime, default=obtener_hora_chile)
-    tipo = db.Column(db.Enum('Entrada', 'Salida', 'Ajuste'), nullable=False)
+    tipo = db.Column(db.Enum('Entrada', 'Salida', 'Ajuste', 'Devolución', 'Baja'), nullable=False)
     cantidad = db.Column(db.Integer, nullable=False)
     motivo = db.Column(db.String(255)) 
     

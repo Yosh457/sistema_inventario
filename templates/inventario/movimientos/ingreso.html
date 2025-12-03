@@ -42,7 +42,7 @@
             {% endif %}
 
             <div class="flex justify-end gap-3 pt-4">
-                <a href="{{ url_for('inventario.lista_productos') }}" class="btn btn-secondary">Cancelar</a>
+                <a href="{{ url_for('inventario.ver_producto', id=producto.id) }}" class="btn btn-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-primary shadow-md">Registrar Ingreso</button>
             </div>
         </form>

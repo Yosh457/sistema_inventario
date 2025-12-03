@@ -4,6 +4,10 @@ from datetime import datetime
 import os
 
 class ActaEntregaPDF(FPDF):
+    def __init__(self, titulo_doc="ORDEN DE ENTREGA UNIDAD TICS"):
+        super().__init__()
+        self.titulo_doc = titulo_doc
+
     def header(self):
         # Rutas de logos
         logo_maho = os.path.join(os.getcwd(), 'static', 'logoMaho.png')
@@ -11,16 +15,16 @@ class ActaEntregaPDF(FPDF):
         
         # Logo Izquierda (Maho)
         if os.path.exists(logo_maho):
-            self.image(logo_maho, 10, 8, 50) # x, y, w
+            self.image(logo_maho, 10, 8, 50) 
             
         # Logo Derecha (APS)
         if os.path.exists(logo_aps):
             self.image(logo_aps, 155, 8, 45)
 
-        # Título Central
+        # Título Central DINÁMICO
         self.set_y(15)
         self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, 'ORDEN DE ENTREGA UNIDAD TICS', 0, 1, 'C')
+        self.cell(0, 10, self.titulo_doc, 0, 1, 'C') # Usamos la variable
         self.ln(5)
 
     def footer(self):
@@ -30,181 +34,191 @@ class ActaEntregaPDF(FPDF):
         self.cell(0, 10, 'Unidad Tics MAHO Salud', 0, 0, 'C')
 
 def generar_acta_entrega(movimiento, equipo=None):
-    pdf = ActaEntregaPDF()
+    # 1. Definir el título según el tipo de movimiento
+    titulo = "ACTA DE MOVIMIENTO" # Default
+    if movimiento.tipo == 'Salida':
+        titulo = "ORDEN DE ENTREGA UNIDAD TICS"
+    elif movimiento.tipo == 'Devolución':
+        titulo = "ACTA DE RECEPCIÓN / DEVOLUCIÓN"
+    elif movimiento.tipo == 'Baja':
+        titulo = "ORDEN DE BAJA UNIDAD TICS"
+
+    # Pasamos el título al constructor
+    pdf = ActaEntregaPDF(titulo_doc=titulo)
+    
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
     # --- DATOS VARIABLES ---
     fecha_str = movimiento.fecha.strftime("%d/%m/%Y")
     anio_actual = movimiento.fecha.year
-    folio = f"{movimiento.id:04d}/{anio_actual}" # Ej: 0005/2025
+    folio = f"{movimiento.id:04d}/{anio_actual}"
     
-    # Parseo del destinatario desde el motivo
+    # Parseo de destinatario (funciona para Entrega y Devolución)
     nombre_receptor = ""
     unidad_receptor = ""
     
-    # Intentamos extraer info si el motivo tiene formato "Entrega a: X | Motivo: Y"
-    if "Entrega a:" in movimiento.motivo:
-        try:
-            partes = movimiento.motivo.split('|')
-            info_receptor = partes[0].replace("Entrega a:", "").strip()
-            # Si el usuario puso "Juan Perez - Finanzas", separamos
-            if "-" in info_receptor:
-                nombre_receptor, unidad_receptor = info_receptor.split('-', 1)
-            else:
-                nombre_receptor = info_receptor
-        except:
-            pass
+    # Buscamos patrones comunes en el motivo
+    texto_origen = movimiento.motivo
+    if "Entrega a:" in texto_origen:
+        texto_origen = texto_origen.replace("Entrega a:", "")
+    elif "Devolución de:" in texto_origen:
+        texto_origen = texto_origen.replace("Devolución de:", "")
+    
+    try:
+        if "|" in texto_origen:
+            partes = texto_origen.split('|')
+            info_persona = partes[0].strip()
+        else:
+            info_persona = texto_origen
+
+        if "-" in info_persona:
+            nombre_receptor, unidad_receptor = info_persona.split('-', 1)
+        else:
+            nombre_receptor = info_persona
+    except:
+        pass
 
     # --- 1. FOLIO Y FECHA ---
     pdf.set_font("Arial", "B", 10)
     pdf.set_y(35)
     
-    # Folio (Izquierda)
     pdf.set_x(10)
     pdf.cell(18, 8, "Folio N°", 0, 0)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(30, 8, folio, 1, 0, 'C') # Recuadro
+    pdf.cell(30, 8, folio, 1, 0, 'C')
     
-    # Fecha (Derecha)
     pdf.set_x(150)
     pdf.set_font("Arial", "B", 10)
     pdf.cell(15, 8, "Fecha", 0, 0)
     pdf.set_font("Arial", "", 10)
-    pdf.cell(35, 8, fecha_str, 1, 1, 'C') # Recuadro y Salto de línea
-
+    pdf.cell(35, 8, fecha_str, 1, 1, 'C')
     pdf.ln(5)
 
-    # --- 2. DATOS DEL RECEPTOR ---
+    # --- 2. DATOS DEL RECEPTOR (O Quien devuelve) ---
     pdf.set_font("Arial", "B", 9)
-    pdf.set_text_color(255, 0, 0) # Rojo para el título
-    pdf.cell(0, 6, "DATOS DEL RECEPTOR", 0, 1, 'C')
-    pdf.set_text_color(0, 0, 0) # Volver a Negro
+    pdf.set_text_color(255, 0, 0)
+    
+    # Cambiamos el subtítulo según contexto
+    subtitulo_datos = "DATOS DEL RECEPTOR"
+    if movimiento.tipo in ['Devolución', 'Baja']:
+        subtitulo_datos = "DATOS DE QUIEN ENTREGA / DEVUELVE"
+        
+    pdf.cell(0, 6, subtitulo_datos, 0, 1, 'C')
+    pdf.set_text_color(0, 0, 0)
 
-    # Fila 1: Nombre (Ancho completo)
+    # Tabla de datos
     pdf.set_font("Arial", "B", 9)
-    pdf.cell(25, 8, "Nombre", 0, 0) # Etiqueta
+    pdf.cell(25, 8, "Nombre", 0, 0)
     pdf.set_font("Arial", "", 9)
-    pdf.cell(0, 8, nombre_receptor, 1, 1) # Caja input (Ancho restante)
+    pdf.cell(0, 8, nombre_receptor.strip(), 1, 1)
 
-    # Fila 2: Rut y Teléfono
     pdf.set_font("Arial", "B", 9)
     pdf.cell(25, 8, "Rut", 0, 0)
-    pdf.cell(60, 8, "", 1, 0) # Caja vacía para Rut
+    pdf.cell(60, 8, "", 1, 0)
     
-    pdf.set_x(105) # Mover a la derecha
+    pdf.set_x(105)
     pdf.cell(20, 8, "Teléfono", 0, 0)
-    pdf.cell(0, 8, "", 1, 1) # Caja vacía para teléfono
+    pdf.cell(0, 8, "", 1, 1)
 
-    # Fila 3: Correo y Unidad
     pdf.set_font("Arial", "B", 9)
     pdf.cell(25, 8, "Correo", 0, 0)
-    pdf.cell(60, 8, "", 1, 0) # Caja vacía
+    pdf.cell(60, 8, "", 1, 0)
     
     pdf.set_x(105)
     pdf.cell(20, 8, "Unidad", 0, 0)
     pdf.set_font("Arial", "", 9)
-    pdf.cell(0, 8, unidad_receptor, 1, 1) # Caja con unidad si la tenemos
+    pdf.cell(0, 8, unidad_receptor.strip(), 1, 1)
 
     pdf.ln(5)
 
-    # --- 3. PRODUCTOS ENTREGADOS ---
+    # --- 3. PRODUCTOS ---
     pdf.set_font("Arial", "B", 9)
-    pdf.cell(0, 6, "PRODUCTOS ENTREGADOS DEL ÁREA TIC", 0, 1, 'C')
+    titulo_prod = "PRODUCTOS ENTREGADOS DEL ÁREA TIC"
+    if movimiento.tipo in ['Devolución', 'Baja']:
+        titulo_prod = "PRODUCTOS RECEPCIONADOS POR ÁREA TIC"
+        
+    pdf.cell(0, 6, titulo_prod, 0, 1, 'C')
 
-    # Caja de Contenido
     pdf.set_fill_color(255, 255, 255)
-    pdf.rect(10, pdf.get_y(), 190, 40) # Dibujar rectángulo grande manual
+    pdf.rect(10, pdf.get_y(), 190, 40)
     
     pdf.set_font("Arial", "B", 9)
     pdf.cell(0, 6, "Contenido:", 0, 1)
     
-    # Detalle del producto
     pdf.set_font("Arial", "", 10)
     texto_producto = f"- {movimiento.cantidad}x {movimiento.producto.nombre}\n"
     if equipo:
         texto_producto += f"  Serie: {equipo.numero_serie}\n"
-    # Limpiamos saltos de línea extra en la descripción para que no rompa el PDF
+        texto_producto += f"  Estado: {equipo.estado}\n" # Agregamos estado para ver si es Baja
+    
     desc = (movimiento.producto.descripcion or "").replace('\n', ' ').replace('\r', '')
     texto_producto += f"  ({desc[:80]}...)" if len(desc) > 80 else f"  ({desc})"
     
-    pdf.set_xy(12, pdf.get_y()) # Margen interno
+    pdf.set_xy(12, pdf.get_y())
     pdf.multi_cell(186, 6, texto_producto)
     
-    pdf.set_y(pdf.get_y() + 22) # Bajar cursor manualmente para salir del rect
+    pdf.set_y(pdf.get_y() + 22) 
 
     # --- 4. OBSERVACIONES ---
     y_observacion = pdf.get_y()
-    pdf.rect(10, y_observacion, 190, 20) # Rectángulo Observaciones
+    pdf.rect(10, y_observacion, 190, 20)
     
     pdf.set_font("Arial", "B", 9)
     pdf.set_xy(10, y_observacion)
     pdf.cell(30, 6, "Observaciones:", 0, 0)
     
     pdf.set_font("Arial", "", 9)
-    motivo_limpio = movimiento.motivo.split('|')[-1].replace("Motivo:", "").strip()
+    try:
+        # Limpiamos el texto del motivo para dejar solo la observación real
+        motivo_limpio = movimiento.motivo.split('|')[-1]
+        motivo_limpio = motivo_limpio.replace("Motivo:", "").strip()
+    except:
+        motivo_limpio = movimiento.motivo
+        
     pdf.set_xy(40, y_observacion)
     pdf.multi_cell(158, 6, motivo_limpio)
     
-    pdf.set_y(y_observacion + 20) # Bajar
+    pdf.set_y(y_observacion + 20) 
 
     # Disclaimer
     pdf.set_font("Arial", "", 7)
-    pdf.multi_cell(0, 4, "Quien acepta y recibe conforme, se compromete a cuidarlo y hacer buen uso del equipo haciéndose responsable de este.", 0, 'C')
-    
+    disclaimer = "Quien acepta y recibe conforme, se compromete a cuidarlo y hacer buen uso del equipo haciéndose responsable de este."
+    if movimiento.tipo in ['Devolución', 'Baja']:
+        disclaimer = "Se certifica la recepción del equipamiento por parte de la Unidad de TICs."
+        
+    pdf.multi_cell(0, 4, disclaimer, 0, 'C')
     pdf.ln(15)
 
     # --- 5. FIRMA ---
-    pdf.line(70, pdf.get_y(), 140, pdf.get_y()) # Línea central
+    pdf.line(70, pdf.get_y(), 140, pdf.get_y())
     pdf.ln(2)
     pdf.set_font("Arial", "B", 9)
-    pdf.cell(0, 5, "FIRMA RECEPTOR DE LA ENTREGA", 0, 1, 'C')
+    
+    texto_firma = "FIRMA RECEPTOR DE LA ENTREGA"
+    if movimiento.tipo in ['Devolución', 'Baja']:
+        texto_firma = "FIRMA QUIEN ENTREGA / DEVUELVE"
+        
+    pdf.cell(0, 5, texto_firma, 0, 1, 'C')
     pdf.ln(10)
 
     # --- 6. IMAGEN ---
     pdf.set_font("Arial", "B", 9)
-    # Dibujar caja para la imagen (El resto de la página hasta el footer)
     y_actual = pdf.get_y()
     espacio_disponible = 270 - y_actual
-    
-    # Dibujamos el cuadro usando el espacio disponible (o un mínimo de 50mm)
     altura_cuadro = max(espacio_disponible, 60)
     
     pdf.rect(10, y_actual, 190, altura_cuadro)
     pdf.set_xy(12, y_actual + 2)
     pdf.cell(0, 5, "Imagen:", 0, 1)
     
-    # --- LÓGICA DE IMAGEN MEJORADA ---
     if movimiento.producto.imagen:
         ruta_img = os.path.join(os.getcwd(), 'static', 'uploads', 'productos', movimiento.producto.imagen)
         if os.path.exists(ruta_img):
-            # Dejamos un margen de 10mm dentro del cuadro
-            margen_interno = 10
-            ancho_max = 170 # 190 del cuadro - 20 margen
-            alto_max = altura_cuadro - 20 # altura cuadro - margen titulo y borde
-            
-            # FPDF image() con w=0, h=0 usa tamaño real.
-            # Si ponemos w=ancho_max y h=0, mantiene ratio basado en ancho.
-            # Pero necesitamos restringir AMBOS (que no se salga de ancho ni de alto).
-            
-            # Truco: Usar w=0 y h=alto_max fuerza el alto y calcula el ancho.
-            # Luego centramos.
-            
-            # Coordenadas para centrar
-            x_centro = 105 # Centro de la página (210/2)
-            y_centro_cuadro = y_actual + (altura_cuadro / 2) + 2 # +2 por el título "Imagen:"
-            
-            # Insertar imagen restringida por altura (para que no se salga por abajo)
-            # Pasamos h=alto_max. FPDF ajustará el ancho proporcionalmente.
-            # Nota: Si la imagen es muy ancha y baja, podría salirse por los lados.
-            # FPDF no tiene "contain" automático simple, pero esto suele bastar para fotos de productos.
-            
+            alto_max = altura_cuadro - 20 
             try:
-                # Intentamos ajustar por altura primero (seguro para listas verticales)
                 pdf.image(ruta_img, x=70, y=y_actual + 15, h=alto_max, w=0)
             except:
-                # Si falla (ej: formato no soportado), ignoramos
                 pass
 
-    # Salida en bytes
     return bytes(pdf.output())

@@ -511,15 +511,21 @@ def salida_stock(id):
 def descargar_acta(id):
     movimiento = Movimiento.query.get_or_404(id)
     
-    # Solo permitimos actas de SALIDAS
-    if movimiento.tipo != 'Salida':
-        flash('Solo se pueden generar actas de entrega (Salidas).', 'warning')
+    # PERMITIR AHORA: Salida, Devolución y Baja
+    tipos_permitidos = ['Salida', 'Devolución', 'Baja']
+    
+    if movimiento.tipo not in tipos_permitidos:
+        flash('Solo se pueden generar actas de Salidas, Devoluciones o Bajas.', 'warning')
         return redirect(url_for('inventario.ver_producto', id=movimiento.producto_id))
 
-    # Intentamos buscar si hubo un equipo específico asociado (Opcional, lógica simple)
-    # Por ahora el PDF tomará los datos genéricos del movimiento.
+    # Intentamos buscar el equipo (lógica simple: buscar por fecha reciente o serial en motivo)
+    # Por ahora usaremos datos genéricos si no encontramos el serial exacto
+    equipo = None
+    if movimiento.producto.tiene_serie:
+        # Intentamos pescar el primer equipo asignado que coincida (Opcional)
+        pass 
     
-    pdf_content = generar_acta_entrega(movimiento)
+    pdf_content = generar_acta_entrega(movimiento, equipo)
     
     response = make_response(pdf_content)
     response.headers['Content-Type'] = 'application/pdf'
@@ -527,3 +533,58 @@ def descargar_acta(id):
     response.headers['Content-Disposition'] = f'inline; filename=Acta_{movimiento.id}.pdf'
     
     return response
+
+@inventario_bp.route('/equipo/devolver/<int:id>', methods=['POST'])
+@login_required
+@gestor_required
+def devolver_equipo(id):
+    equipo = Equipo.query.get_or_404(id)
+    producto = equipo.producto
+    
+    # Capturar datos del formulario
+    estado_retorno = request.form.get('estado_retorno') # 'Disponible' o 'Baja'
+    motivo = request.form.get('motivo')
+    
+    # Guardamos quién lo tenía antes de limpiar el campo
+    usuario_previo = equipo.asignado_a or "Desconocido"
+    
+    if estado_retorno == 'Disponible':
+        # CASO 1: DEVOLUCIÓN (Equipo Bueno)
+        equipo.estado = 'Disponible'
+        equipo.asignado_a = None
+        equipo.ubicacion = 'Bodega Central'
+        
+        # Aumentamos stock
+        producto.stock_actual += 1
+        
+        tipo_mov = 'Devolución'
+        texto_motivo = f"Devolución de: {usuario_previo} | Motivo: {motivo}"
+        
+    elif estado_retorno == 'Baja':
+        # CASO 2: BAJA (Equipo Malo)
+        equipo.estado = 'Baja' # O 'Malo'
+        # NO aumentamos stock_actual porque no sirve
+        
+        tipo_mov = 'Baja'
+        texto_motivo = f"Baja de equipo asignado a: {usuario_previo} | Motivo: {motivo}"
+        
+    else:
+        flash('Estado no válido.', 'danger')
+        return redirect(url_for('inventario.ver_producto', id=producto.id))
+
+    # Registrar Movimiento
+    movimiento = Movimiento(
+        tipo=tipo_mov, # Asegúrate de que tu ENUM en la BD acepte estos valores, si no, usa 'Ajuste' o altera la tabla
+        cantidad=1,
+        motivo=texto_motivo,
+        producto_id=producto.id,
+        usuario_id=current_user.id
+    )
+    
+    db.session.add(movimiento)
+    db.session.commit()
+    
+    registrar_log("Devolución/Baja", f"Equipo {equipo.numero_serie} pasó a estado {estado_retorno}")
+    flash(f'Equipo procesado correctamente como {estado_retorno}.', 'success')
+    
+    return redirect(url_for('inventario.ver_producto', id=producto.id))
